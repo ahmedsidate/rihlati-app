@@ -1,6 +1,6 @@
 /* رحلتي — Service Worker: يخزّن الصفحة وملفاتها ليعمل التطبيق دون إنترنت.
    طلبات Supabase لا تُخزَّن هنا (تتولاها طبقة المزامنة داخل التطبيق). */
-const VERSION = 'rehlati-v1';
+const VERSION = 'rehlati-v2';
 const SHELL = ['./', './index.html', './shim.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {

@@ -537,6 +537,38 @@
     document.body.appendChild(overlay);
     if (pill) pill.remove(), pill = null;
   }
+  /* يقبل: رمزاً من الرسالة، أو رابط الرسالة (token=…)، أو رابط التطبيق بعد الدخول (#access_token=…) */
+  function verifyInput(t, email) {
+    var i = t.indexOf('access_token=');
+    if (i >= 0) {
+      var q = new URLSearchParams(t.slice(i));
+      if (q.get('access_token')) return Promise.resolve(sessionFrom({ access_token: q.get('access_token'), refresh_token: q.get('refresh_token'), expires_in: Number(q.get('expires_in')) || 3600 }));
+    }
+    var hash = '', type = '';
+    if (/^https?:\/\//i.test(t) || /[?&](token|token_hash)=/.test(t)) {
+      try {
+        var u = new URL(t.indexOf('http') === 0 ? t : 'https://x/?' + t.replace(/^[?]/, ''));
+        hash = u.searchParams.get('token_hash') || u.searchParams.get('token') || '';
+        type = u.searchParams.get('type') || '';
+      } catch (e) {}
+      if (!hash) return Promise.resolve(null);
+      var types = type ? [type] : ['magiclink', 'signup'];
+      return tryTypes(types, function (ty) { return { type: ty, token_hash: hash }; });
+    }
+    var tok = t.replace(/\s+/g, '');
+    return tryTypes(['email', 'signup', 'magiclink'], function (ty) { return { type: ty, email: email, token: tok }; });
+  }
+  function tryTypes(types, mk) {
+    var i = 0;
+    function next() {
+      if (i >= types.length) return Promise.resolve(null);
+      return authReq('/auth/v1/verify', mk(types[i++])).then(function (r) {
+        if (r.ok && r.body.access_token) return sessionFrom(r.body);
+        return next();
+      });
+    }
+    return next();
+  }
   var loginResolve = null, pendingErr = '';
   function showLogin(isOverlay) {
     injectCss(); closeOverlay();
@@ -566,17 +598,16 @@
         inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') b.click(); });
         setTimeout(function () { inp.focus(); }, 50);
       } else {
-        box.appendChild(el('p', { text: 'أدخل الرمز المرسل إلى ' + email }));
-        var code = el('input', { type: 'text', dir: 'ltr', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '10', placeholder: '123456', id: 'rh-code' });
-        box.appendChild(el('label', { for: 'rh-code', text: 'رمز الدخول' })); box.appendChild(code);
+        box.appendChild(el('p', { text: 'تم الإرسال إلى ' + email + '. أدخل الرمز الذي في الرسالة، أو الصق رابط الدخول الذي فيها (اضغط عليه مطوّلاً ثم «نسخ الرابط»).' }));
+        var code = el('input', { type: 'text', dir: 'ltr', inputmode: 'text', autocomplete: 'one-time-code', autocapitalize: 'off', spellcheck: 'false', placeholder: '123456 أو https://…', id: 'rh-code' });
+        box.appendChild(el('label', { for: 'rh-code', text: 'الرمز أو رابط الدخول' })); box.appendChild(code);
         var v = el('button', { class: 'rh-btn pri', type: 'button', text: 'دخول' });
         v.addEventListener('click', function () {
-          var t = code.value.replace(/\s+/g, '');
-          if (t.length < 6) { draw('الرمز من 6 أرقام على الأقل.', 'bad'); return; }
+          var t = code.value.trim();
+          if (t.length < 6) { draw('أدخل الرمز أو الصق الرابط.', 'bad'); return; }
           v.disabled = true; v.textContent = 'جارٍ التحقق…';
-          authReq('/auth/v1/verify', { type: 'email', email: email, token: t }).then(function (r) {
-            if (r.ok && r.body.access_token) { finishLogin(sessionFrom(r.body)); }
-            else draw('الرمز غير صحيح أو انتهت صلاحيته.', 'bad');
+          verifyInput(t, email).then(function (sess) {
+            if (sess) finishLogin(sess); else draw('الرمز أو الرابط غير صحيح أو انتهت صلاحيته. اطلب رسالة جديدة.', 'bad');
           }, function () { draw('لا يوجد اتصال بالإنترنت.', 'bad'); });
         });
         box.appendChild(v);

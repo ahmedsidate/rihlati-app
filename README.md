@@ -21,4 +21,4 @@
 
 ## إعدادات Supabase المطلوبة (مرة واحدة)
 1. Authentication ← URL Configuration: ضع `Site URL` و`Redirect URLs` برابط التطبيق.
-2. Authentication ← Email Templates ← Magic Link: أضف السطر `<p>رمز الدخول: {{ .Token }}</p>` ليصل الموظف رمز من 6 أرقام (أنسب للهاتف من الرابط).
+2. (اختياري) Authentication ← Email Templates (Confirm signup وMagic link): أضف `<p>رمز الدخول: {{ .Token }}</p>` ليصل رمز من 6 أرقام. بدونه يمكن الدخول بنسخ رابط الرسالة ولصقه في خانة الدخول بالتطبيق.
